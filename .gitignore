@@ -1,0 +1,10 @@
+# Archivos generados - no subir a Git
+uploads/
+__pycache__/
+*.pyc
+*.pyo
+
+# Los modelos y datos SÍ se suben (son configuración del usuario)
+# Si no querés subir modelos, descomentá:
+# modelos/
+# data/
