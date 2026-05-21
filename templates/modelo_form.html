@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="page-header">
+  <h1>{{ '✏️ Editar modelo' if modelo else '➕ Nuevo modelo' }}</h1>
+  <p>{{ 'Modificá el nombre, el Word o la firma de este modelo.' if modelo else 'Subí el certificado Word y la firma del instructor.' }}</p>
+</div>
+
+<form method="POST" action="/modelo/guardar" enctype="multipart/form-data">
+  <input type="hidden" name="modelo_id" value="{{ modelo_id or '' }}">
+
+  <div class="card">
+    <div class="card-title"><span class="icon">📝</span> Información del modelo</div>
+
+    <div class="form-group">
+      <label>Nombre del modelo</label>
+      <input type="text" name="nombre" value="{{ modelo.nombre if modelo else '' }}"
+             placeholder="Ej: CRM/FFHH Recurrente, E-Learning 2025..." required>
+      <div class="hint">Este nombre aparecerá en la lista y en el nombre del ZIP generado.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">📄</span> Certificado Word (.docx)</div>
+
+    {% if modelo and modelo.get('docx_path') %}
+    <div class="alert alert-success mt-0" style="margin-bottom:1rem">
+      <span>✓</span>
+      <span>Ya hay un Word cargado. Subí uno nuevo solo si querés reemplazarlo.</span>
+    </div>
+    {% endif %}
+
+    <div class="form-group">
+      <label>Archivo Word template</label>
+      <div class="file-upload" id="docx-zone">
+        <input type="file" name="docx" accept=".docx" onchange="showFileName(this,'docx-name')">
+        <div class="upload-icon">📄</div>
+        <div class="upload-text">Arrastrá el .docx acá o hacé clic para seleccionar</div>
+        <div class="file-name hidden" id="docx-name"></div>
+      </div>
+      <div class="hint">
+        El Word debe tener los placeholders: <code>NOMBRE ALUMNO, DNI XXXXX</code> para el piloto,
+        <code>DD/MM/YYYY</code> para la fecha de cursada, y <code>XX</code> en el header para el folio.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">✍️</span> Firma del instructor</div>
+
+    {% if modelo and modelo.get('firma_path') %}
+    <div class="alert alert-success mt-0" style="margin-bottom:1rem">
+      <span>✓</span>
+      <span>Ya hay una firma cargada. Subí una nueva solo si querés reemplazarla.</span>
+    </div>
+    {% endif %}
+
+    <div class="form-group">
+      <label>Imagen de firma (.jpg, .jpeg, .png)</label>
+      <div class="file-upload" id="firma-zone">
+        <input type="file" name="firma" accept=".jpg,.jpeg,.png" onchange="showFileName(this,'firma-name')">
+        <div class="upload-icon">✍️</div>
+        <div class="upload-text">Arrastrá la imagen de firma acá o hacé clic para seleccionar</div>
+        <div class="file-name hidden" id="firma-name"></div>
+      </div>
+      <div class="hint">
+        Se inserta automáticamente en el lugar correspondiente del certificado.
+        Recomendado: fondo blanco, formato JPG.
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary btn-lg">
+      💾 Guardar modelo
+    </button>
+    <a href="/" class="btn btn-outline btn-lg">Cancelar</a>
+  </div>
+</form>
+
+<script>
+function showFileName(input, targetId) {
+  const el = document.getElementById(targetId);
+  if (input.files.length > 0) {
+    el.textContent = '📎 ' + input.files[0].name;
+    el.classList.remove('hidden');
+  }
+}
+
+// Drag & drop visual
+document.querySelectorAll('.file-upload').forEach(zone => {
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', () => zone.classList.remove('dragover'));
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CertGen – JetSMART</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --jet: #1a1a2e;
+      --smart: #e94560;
+      --smart-dark: #c73652;
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --text: #2d3436;
+      --muted: #636e72;
+      --border: #dfe6e9;
+      --success: #00b894;
+      --warn: #fdcb6e;
+      --danger: #d63031;
+      --radius: 10px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      background: var(--jet);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      height: 60px;
+      gap: 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .navbar .brand {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; color: white; font-weight: 700; font-size: 1.1rem;
+    }
+    .navbar .brand .dot { color: var(--smart); font-size: 1.4rem; }
+    .navbar nav { display: flex; gap: 0.25rem; margin-left: auto; }
+    .navbar nav a {
+      color: rgba(255,255,255,0.7); text-decoration: none;
+      padding: 0.4rem 1rem; border-radius: 6px; font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .navbar nav a:hover, .navbar nav a.active {
+      background: rgba(255,255,255,0.12); color: white;
+    }
+
+    /* ── Layout ── */
+    .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .page-header { margin-bottom: 1.75rem; }
+    .page-header h1 { font-size: 1.5rem; font-weight: 700; color: var(--jet); }
+    .page-header p  { color: var(--muted); margin-top: 0.3rem; font-size: 0.9rem; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 1.5rem; margin-bottom: 1.25rem;
+    }
+    .card-title {
+      font-weight: 600; font-size: 1rem; margin-bottom: 1rem;
+      padding-bottom: 0.75rem; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .card-title .icon { font-size: 1.2rem; }
+
+    /* ── Grid de modelos ── */
+    .modelos-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;
+    }
+    .modelo-card {
+      background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 1.25rem; border-left: 4px solid var(--smart);
+      display: flex; flex-direction: column; gap: 0.75rem;
+    }
+    .modelo-card h3 { font-size: 1rem; font-weight: 600; }
+    .modelo-card .meta { font-size: 0.8rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.25rem; }
+    .modelo-card .badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 500;
+    }
+    .badge-ok  { background: #d4edda; color: #155724; }
+    .badge-no  { background: #f8d7da; color: #721c24; }
+    .modelo-actions { display: flex; gap: 0.5rem; margin-top: auto; }
+
+    /* ── Botones ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.5rem 1.1rem; border-radius: 7px; font-size: 0.875rem;
+      font-weight: 500; cursor: pointer; border: none; text-decoration: none;
+      transition: all 0.18s; white-space: nowrap;
+    }
+    .btn-primary   { background: var(--smart); color: white; }
+    .btn-primary:hover { background: var(--smart-dark); transform: translateY(-1px); }
+    .btn-secondary { background: var(--jet); color: white; }
+    .btn-secondary:hover { background: #2d2d4e; }
+    .btn-outline   { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-outline:hover { border-color: var(--smart); color: var(--smart); }
+    .btn-danger    { background: var(--danger); color: white; }
+    .btn-danger:hover { background: #c0392b; }
+    .btn-success   { background: var(--success); color: white; }
+    .btn-success:hover { background: #00a381; }
+    .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
+    .btn-lg { padding: 0.75rem 1.75rem; font-size: 1rem; }
+
+    /* ── Forms ── */
+    .form-group { margin-bottom: 1.25rem; }
+    .form-group label {
+      display: block; font-size: 0.85rem; font-weight: 600;
+      margin-bottom: 0.4rem; color: var(--text);
+    }
+    .form-group .hint { font-size: 0.78rem; color: var(--muted); margin-top: 0.3rem; }
+    input[type=text], input[type=number], input[type=date],
+    select, textarea {
+      width: 100%; padding: 0.6rem 0.9rem; border: 1.5px solid var(--border);
+      border-radius: 7px; font-size: 0.9rem; background: #fafafa;
+      transition: border-color 0.2s; color: var(--text);
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--smart); background: white;
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+
+    /* ── File Upload ── */
+    .file-upload {
+      border: 2px dashed var(--border); border-radius: var(--radius);
+      padding: 1.5rem; text-align: center; cursor: pointer;
+      transition: all 0.2s; position: relative;
+    }
+    .file-upload:hover, .file-upload.dragover {
+      border-color: var(--smart); background: #fff5f7;
+    }
+    .file-upload input[type=file] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .file-upload .upload-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+    .file-upload .upload-text { font-size: 0.85rem; color: var(--muted); }
+    .file-upload .file-name { font-size: 0.85rem; font-weight: 600; color: var(--smart); margin-top: 0.5rem; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    thead th {
+      background: var(--jet); color: white; padding: 0.65rem 1rem;
+      text-align: left; font-weight: 500; font-size: 0.8rem;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+    tbody tr:hover { background: #f8f9ff; }
+    tbody td { padding: 0.65rem 1rem; }
+
+    /* ── Alerts ── */
+    .alert {
+      padding: 0.9rem 1.1rem; border-radius: 8px; font-size: 0.875rem;
+      margin-bottom: 1rem; display: flex; align-items: flex-start; gap: 0.6rem;
+    }
+    .alert-info    { background: #e8f4fd; color: #1a6fa8; border-left: 4px solid #1a6fa8; }
+    .alert-success { background: #e9f7ef; color: #1e7e45; border-left: 4px solid #00b894; }
+    .alert-danger  { background: #fdecea; color: #a11b1b; border-left: 4px solid var(--danger); }
+    .alert-warn    { background: #fff8e6; color: #7a5c00; border-left: 4px solid var(--warn); }
+
+    /* ── Steps ── */
+    .steps { display: flex; gap: 0; margin-bottom: 2rem; }
+    .step {
+      flex: 1; padding: 0.75rem 1rem; text-align: center;
+      background: var(--border); font-size: 0.8rem; color: var(--muted);
+      position: relative; font-weight: 500;
+    }
+    .step:not(:last-child)::after {
+      content: ''; position: absolute; right: -12px; top: 50%;
+      transform: translateY(-50%);
+      border: 12px solid transparent;
+      border-left-color: var(--border); z-index: 1;
+    }
+    .step.active { background: var(--smart); color: white; }
+    .step.active::after { border-left-color: var(--smart); }
+    .step.done { background: var(--jet); color: white; }
+    .step.done::after { border-left-color: var(--jet); }
+    .step:first-child { border-radius: 7px 0 0 7px; }
+    .step:last-child  { border-radius: 0 7px 7px 0; }
+    .step:last-child::after { display: none; }
+
+    /* ── Preview table mini ── */
+    .preview-table { font-size: 0.78rem; }
+    .preview-table th { background: #636e72; }
+    .preview-table td { padding: 0.4rem 0.7rem; }
+    .col-select { font-size: 0.78rem; padding: 0.3rem 0.5rem; width: 100%; }
+
+    /* ── Progress / spinner ── */
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: white; border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Result box ── */
+    .result-box {
+      background: linear-gradient(135deg, var(--jet) 0%, #2d2d5e 100%);
+      color: white; border-radius: var(--radius); padding: 2rem; text-align: center;
+    }
+    .result-box .big-num { font-size: 3.5rem; font-weight: 800; color: var(--smart); }
+    .result-box .sub { font-size: 0.9rem; opacity: 0.8; margin-top: 0.25rem; }
+    .result-box .folio-range { font-size: 1rem; opacity: 0.9; margin: 0.75rem 0; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 3rem 1rem; color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3.5rem; margin-bottom: 1rem; }
+    .empty-state h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); }
+    .empty-state p { font-size: 0.875rem; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .form-row, .form-row-3 { grid-template-columns: 1fr; }
+      .modelos-grid { grid-template-columns: 1fr; }
+    }
+
+    .hidden { display: none !important; }
+    .mt-1 { margin-top: 0.5rem; }
+    .mt-2 { margin-top: 1rem; }
+    .mt-3 { margin-top: 1.5rem; }
+    .text-muted { color: var(--muted); font-size: 0.85rem; }
+    .d-flex { display: flex; }
+    .align-center { align-items: center; }
+    .gap-1 { gap: 0.5rem; }
+    .gap-2 { gap: 1rem; }
+    .justify-between { justify-content: space-between; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" class="brand">
+    <span class="dot">✈</span> CertGen
+    <span style="font-size:0.7rem; opacity:0.5; font-weight:400; margin-left:4px;">JetSMART</span>
+  </a>
+  <nav>
+    <a href="/" class="{{ 'active' if request.endpoint == 'index' }}">Modelos</a>
+    <a href="/generar" class="{{ 'active' if request.endpoint in ['generar_page','generar_ejecutar'] }}">Generar</a>
+  </nav>
+</nav>
+
+<div class="container">
+  {% block content %}{% endblock %}
+</div>
+
+</body>
+</html>

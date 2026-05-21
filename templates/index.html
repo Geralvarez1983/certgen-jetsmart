@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="page-header d-flex justify-between align-center">
+  <div>
+    <h1>📄 Modelos de Certificado</h1>
+    <p>Administrá los templates Word para cada tipo de certificado</p>
+  </div>
+  <a href="/modelo/nuevo" class="btn btn-primary">
+    <span>＋</span> Nuevo modelo
+  </a>
+</div>
+
+{% if modelos %}
+<div class="modelos-grid">
+  {% for id, m in modelos.items() %}
+  <div class="modelo-card">
+    <h3>{{ m.nombre }}</h3>
+    <div class="meta">
+      <span>
+        {% if m.get('docx_path') %}
+          <span class="badge badge-ok">✓ Word cargado</span>
+        {% else %}
+          <span class="badge badge-no">✗ Sin Word</span>
+        {% endif %}
+      </span>
+      <span>
+        {% if m.get('firma_path') %}
+          <span class="badge badge-ok">✓ Firma cargada</span>
+        {% else %}
+          <span class="badge badge-no">✗ Sin firma</span>
+        {% endif %}
+      </span>
+    </div>
+    <div class="modelo-actions">
+      <a href="/modelo/{{ id }}/editar" class="btn btn-outline btn-sm">✏️ Editar</a>
+      <a href="/generar?modelo={{ id }}" class="btn btn-primary btn-sm">▶ Generar</a>
+      <form method="POST" action="/modelo/{{ id }}/eliminar"
+            onsubmit="return confirm('¿Eliminar este modelo?')" style="margin-left:auto">
+        <button class="btn btn-danger btn-sm">🗑</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="alert alert-info mt-2">
+  <span>💡</span>
+  <span>Tenés <strong>{{ modelos|length }} modelo(s)</strong> cargados. Para generar certificados, hacé clic en <strong>▶ Generar</strong> o andá a la sección <a href="/generar">Generar</a>.</span>
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <div class="icon">📋</div>
+    <h3>Todavía no hay modelos cargados</h3>
+    <p>Creá tu primer modelo subiendo el Word del certificado y la firma del instructor.</p>
+    <a href="/modelo/nuevo" class="btn btn-primary mt-2">＋ Crear primer modelo</a>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

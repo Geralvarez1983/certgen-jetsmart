@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="page-header">
+  <h1>▶ Generar Certificados</h1>
+  <p>Subí la nómina, configurá los datos y generá todos los PDFs de una vez.</p>
+</div>
+
+{% if not modelos %}
+<div class="alert alert-warn">
+  <span>⚠️</span>
+  <span>No hay modelos cargados todavía. <a href="/modelo/nuevo">Creá uno primero</a>.</span>
+</div>
+{% else %}
+
+<!-- Steps indicator -->
+<div class="steps">
+  <div class="step done" id="step-ind-1">1 · Modelo</div>
+  <div class="step active" id="step-ind-2">2 · Nómina</div>
+  <div class="step" id="step-ind-3">3 · Configurar</div>
+  <div class="step" id="step-ind-4">4 · Generar</div>
+</div>
+
+<!-- PASO 1: Elegir modelo -->
+<div class="card" id="paso1">
+  <div class="card-title"><span class="icon">📋</span> Paso 1 · Elegir modelo de certificado</div>
+  <div class="form-group">
+    <label>Modelo</label>
+    <select id="sel-modelo">
+      <option value="">-- Seleccioná un modelo --</option>
+      {% for id, m in modelos.items() %}
+      <option value="{{ id }}" {{ 'selected' if request.args.get('modelo') == id }}>
+        {{ m.nombre }}
+        {% if not m.get('docx_path') %} ⚠️ (sin Word){% endif %}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <button class="btn btn-primary" onclick="irPaso2()">Siguiente →</button>
+</div>
+
+<!-- PASO 2: Subir Excel -->
+<div class="card hidden" id="paso2">
+  <div class="card-title"><span class="icon">📊</span> Paso 2 · Subir nómina (Excel)</div>
+  <div class="form-group">
+    <label>Archivo Excel con la nómina de pilotos</label>
+    <div class="file-upload" id="excel-zone">
+      <input type="file" id="excel-file" accept=".xlsx,.xls" onchange="cargarExcel()">
+      <div class="upload-icon">📊</div>
+      <div class="upload-text">Arrastrá el Excel acá o hacé clic para seleccionar</div>
+      <div class="file-name hidden" id="excel-name"></div>
+    </div>
+  </div>
+  <div id="excel-loading" class="hidden text-muted mt-1">⏳ Leyendo archivo...</div>
+</div>
+
+<!-- PASO 3: Configurar columnas -->
+<div class="card hidden" id="paso3">
+  <div class="card-title"><span class="icon">⚙️</span> Paso 3 · Configurar columnas y parámetros</div>
+
+  <div class="form-group">
+    <label>Hoja del Excel</label>
+    <select id="sel-hoja" class="col-select" onchange="actualizarPreview()">
+    </select>
+  </div>
+
+  <div class="alert alert-info">
+    <span>👁️</span>
+    <span>Vista previa de las primeras filas. Indicá qué columna corresponde a cada dato (número de columna, empezando desde 1).</span>
+  </div>
+
+  <div class="table-wrap mt-1">
+    <table class="preview-table" id="preview-table">
+      <thead><tr id="preview-header"></tr></thead>
+      <tbody id="preview-body"></tbody>
+      <tfoot>
+        <tr id="col-selectors">
+          <td colspan="10">
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="form-row-3 mt-2">
+    <div class="form-group">
+      <label>Columna FOLIO (nro)</label>
+      <input type="number" id="col-folio" value="1" min="1" max="20">
+      <div class="hint">Nro de columna donde está el folio</div>
+    </div>
+    <div class="form-group">
+      <label>Columna NOMBRE</label>
+      <input type="number" id="col-nombre" value="5" min="1" max="20">
+      <div class="hint">Nro de columna con el nombre del piloto</div>
+    </div>
+    <div class="form-group">
+      <label>Columna DNI</label>
+      <input type="number" id="col-dni" value="6" min="1" max="20">
+      <div class="hint">Nro de columna con el DNI</div>
+    </div>
+  </div>
+
+  <div class="form-row mt-1">
+    <div class="form-group">
+      <label>Folio inicial (primer certificado)</label>
+      <input type="number" id="folio-inicio" value="898" min="1">
+      <div class="hint">El primer folio del Excel se reemplazará por este número</div>
+    </div>
+    <div class="form-group">
+      <label>Fecha de cursada (DD/MM/YYYY) — opcional</label>
+      <input type="text" id="fecha-cursada" placeholder="Ej: 20/12/2025">
+      <div class="hint">Reemplaza el placeholder DD/MM/YYYY. Dejá vacío si ya está fijo en el Word.</div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary mt-1" onclick="irPaso4()">Siguiente →</button>
+  <button class="btn btn-outline mt-1" onclick="mostrar('paso2'); setStep(2)">← Volver</button>
+</div>
+
+<!-- PASO 4: Confirmar y generar -->
+<div class="card hidden" id="paso4">
+  <div class="card-title"><span class="icon">🚀</span> Paso 4 · Confirmar y generar</div>
+
+  <div id="resumen" class="alert alert-info"></div>
+
+  <div id="gen-progress" class="hidden">
+    <div class="alert alert-warn">
+      <span><div class="spinner" style="border-color:rgba(0,0,0,0.2);border-top-color:#7a5c00;"></div></span>
+      <span id="progress-msg">Generando certificados y convirtiendo a PDF... esto puede tardar unos minutos.</span>
+    </div>
+  </div>
+
+  <div id="gen-result" class="hidden">
+    <div class="result-box">
+      <div class="big-num" id="res-count">0</div>
+      <div class="sub">certificados generados</div>
+      <div class="folio-range" id="res-folios"></div>
+      <a id="res-download" href="#" class="btn btn-success btn-lg mt-2">
+        ⬇️ Descargar ZIP (PDF)
+      </a>
+    </div>
+    <div id="res-errores" class="hidden alert alert-warn mt-2"></div>
+    <button class="btn btn-outline mt-2" onclick="location.reload()">🔄 Generar otro lote</button>
+  </div>
+
+  <div id="gen-actions">
+    <button class="btn btn-primary btn-lg" onclick="ejecutarGeneracion()" id="btn-generar">
+      🚀 Generar certificados PDF
+    </button>
+    <button class="btn btn-outline mt-1" onclick="mostrar('paso3'); setStep(3)">← Volver</button>
+  </div>
+</div>
+
+{% endif %}
+
+<script>
+let excelTmpPath = '';
+let hojasDisponibles = [];
+let previewData = [];
+
+function mostrar(id) {
+  ['paso1','paso2','paso3','paso4'].forEach(p => {
+    document.getElementById(p).classList.toggle('hidden', p !== id);
+  });
+}
+
+function setStep(n) {
+  ['step-ind-1','step-ind-2','step-ind-3','step-ind-4'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.className = 'step ' + (i+1 < n ? 'done' : i+1 === n ? 'active' : '');
+  });
+}
+
+function irPaso2() {
+  const modelo = document.getElementById('sel-modelo').value;
+  if (!modelo) { alert('Seleccioná un modelo primero.'); return; }
+  mostrar('paso2');
+  setStep(2);
+}
+
+async function cargarExcel() {
+  const file = document.getElementById('excel-file').files[0];
+  if (!file) return;
+
+  document.getElementById('excel-name').textContent = '📎 ' + file.name;
+  document.getElementById('excel-name').classList.remove('hidden');
+  document.getElementById('excel-loading').classList.remove('hidden');
+
+  const fd = new FormData();
+  fd.append('excel', file);
+
+  const res  = await fetch('/preview-excel', { method: 'POST', body: fd });
+  const data = await res.json();
+
+  document.getElementById('excel-loading').classList.add('hidden');
+
+  if (data.error) { alert('Error: ' + data.error); return; }
+
+  excelTmpPath     = data.tmp_path;
+  hojasDisponibles = data.hojas;
+  previewData      = data.preview;
+
+  // Poblar selector de hojas
+  const selHoja = document.getElementById('sel-hoja');
+  selHoja.innerHTML = '';
+  data.hojas.forEach(h => {
+    const opt = document.createElement('option');
+    opt.value = h; opt.textContent = h;
+    if (h === 'Libro X') opt.selected = true;
+    selHoja.appendChild(opt);
+  });
+
+  renderPreview(data.preview);
+  mostrar('paso3');
+  setStep(3);
+}
+
+function renderPreview(rows) {
+  if (!rows.length) return;
+  const header = document.getElementById('preview-header');
+  const body   = document.getElementById('preview-body');
+
+  // Header con números de columna
+  header.innerHTML = rows[0].map((_, i) =>
+    `<th>Col ${i+1}</th>`
+  ).join('');
+
+  // Filas
+  body.innerHTML = rows.map(row =>
+    `<tr>${row.map(c => `<td>${c || ''}</td>`).join('')}</tr>`
+  ).join('');
+}
+
+function actualizarPreview() {
+  // En una mejora futura podría recargar la preview para la hoja seleccionada
+}
+
+function irPaso4() {
+  const folio = document.getElementById('folio-inicio').value;
+  const colF  = document.getElementById('col-folio').value;
+  const colN  = document.getElementById('col-nombre').value;
+  const colD  = document.getElementById('col-dni').value;
+  const hoja  = document.getElementById('sel-hoja').value;
+  const modelo = document.getElementById('sel-modelo');
+  const fecha = document.getElementById('fecha-cursada').value;
+
+  if (!folio || folio < 1) { alert('Ingresá un folio inicial válido.'); return; }
+
+  // Resumen
+  document.getElementById('resumen').innerHTML = `
+    <span>📋</span>
+    <div>
+      <strong>Listo para generar:</strong><br>
+      Modelo: <strong>${modelo.options[modelo.selectedIndex].text}</strong> ·
+      Hoja: <strong>${hoja}</strong> ·
+      Folio inicial: <strong>${folio}</strong>
+      ${fecha ? ` · Fecha: <strong>${fecha}</strong>` : ''}
+    </div>
+  `;
+
+  mostrar('paso4');
+  setStep(4);
+}
+
+async function ejecutarGeneracion() {
+  const modelo  = document.getElementById('sel-modelo').value;
+  const hoja    = document.getElementById('sel-hoja').value;
+  const colF    = document.getElementById('col-folio').value;
+  const colN    = document.getElementById('col-nombre').value;
+  const colD    = document.getElementById('col-dni').value;
+  const folio   = document.getElementById('folio-inicio').value;
+  const fecha   = document.getElementById('fecha-cursada').value;
+
+  document.getElementById('gen-actions').classList.add('hidden');
+  document.getElementById('gen-progress').classList.remove('hidden');
+
+  const payload = {
+    modelo_id:    modelo,
+    excel_path:   excelTmpPath,
+    hoja:         hoja,
+    col_folio:    colF,
+    col_nombre:   colN,
+    col_dni:      colD,
+    folio_inicio: folio,
+    fecha:        fecha
+  };
+
+  try {
+    const res  = await fetch('/generar/ejecutar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    document.getElementById('gen-progress').classList.add('hidden');
+
+    if (data.error) {
+      document.getElementById('gen-actions').classList.remove('hidden');
+      alert('Error: ' + data.error);
+      return;
+    }
+
+    // Mostrar resultado
+    document.getElementById('res-count').textContent  = data.ok;
+    document.getElementById('res-folios').textContent =
+      `Folios ${data.folio_inicio} → ${data.folio_fin}`;
+    document.getElementById('res-download').href = '/descargar/' + data.zip;
+    document.getElementById('res-download').download = data.zip;
+
+    if (data.errores && data.errores.length) {
+      const errEl = document.getElementById('res-errores');
+      errEl.innerHTML = `⚠️ <strong>${data.errores.length} error(es):</strong> ${data.errores.join(', ')}`;
+      errEl.classList.remove('hidden');
+    }
+
+    document.getElementById('gen-result').classList.remove('hidden');
+
+  } catch(e) {
+    document.getElementById('gen-progress').classList.add('hidden');
+    document.getElementById('gen-actions').classList.remove('hidden');
+    alert('Error de conexión: ' + e.message);
+  }
+}
+
+// Init: si viene con modelo preseleccionado, avanzar al paso 1 ya marcado
+window.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('sel-modelo')?.value) {
+    setStep(1);
+  }
+  // drag & drop
+  document.querySelectorAll('.file-upload').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', () => zone.classList.remove('dragover'));
+  });
+});
+</script>
+
+{% endblock %}
