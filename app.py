@@ -37,12 +37,14 @@ def save_modelos(data):
 # ─── Core: modificar docx con python-docx ────────────────────────────────────
 
 def reemplazar_en_parrafo(para, buscar, reemplazar_con):
-    """Reemplaza texto en un párrafo preservando el formato del primer run."""
+    """
+    Reemplaza texto en un párrafo, incluso si está fragmentado en múltiples runs.
+    Une todo el texto, hace el reemplazo y pone el resultado en el primer run.
+    """
     texto_completo = ''.join(r.text for r in para.runs)
     if buscar not in texto_completo:
         return False
     nuevo_texto = texto_completo.replace(buscar, reemplazar_con)
-    # Poner todo en el primer run y vaciar los demás
     if para.runs:
         para.runs[0].text = nuevo_texto
         for r in para.runs[1:]:
@@ -95,19 +97,29 @@ def inyectar_firma_en_zip(docx_path, firma_path):
                 zout.writestr(item, zin.read(item.filename))
     os.replace(tmp, docx_path)
 
-def generar_certificado_docx(template_path, firma_path, piloto, folio_final, fecha_str, output_path):
+def generar_certificado_docx(template_path, firma_path, piloto, folio_final, fecha_cursada, fecha_validez, output_path):
     """Genera un .docx para un piloto."""
     doc = Document(template_path)
 
     nombre = piloto['nombre'].upper()
     dni    = piloto['dni']
 
-    # Reemplazar placeholders
+    # Reemplazar placeholders — soporta múltiples formatos de template
+    # Formato nuevo: NOMBRE ALUMNO / NUM_DNI / NUM_FOLIO / FECHA_INICIO / FECHA_FIN
+    reemplazar_en_doc(doc, 'NOMBRE ALUMNO', nombre)
+    reemplazar_en_doc(doc, 'NUM_DNI', dni)
+    reemplazar_en_doc(doc, 'NUM_FOLIO', str(folio_final))
+    # Formato anterior: NOMBRE ALUMNO, DNI XXXXX
     reemplazar_en_doc(doc, 'NOMBRE ALUMNO, DNI XXXXX', f'{nombre}, DNI {dni}')
     reemplazar_en_doc(doc, 'DNI XXXXX', f'DNI {dni}')
-    if fecha_str:
-        reemplazar_en_doc(doc, 'DD/MM/YYYY', fecha_str)
-    # Folio en header (placeholder XX)
+    if fecha_cursada:
+        reemplazar_en_doc(doc, 'FECHA_INICIO', fecha_cursada)
+        reemplazar_en_doc(doc, 'DD/MM/YYYY', fecha_cursada)
+        reemplazar_en_doc(doc, 'FECHA_CURSADA', fecha_cursada)
+    if fecha_validez:
+        reemplazar_en_doc(doc, 'FECHA_FIN', fecha_validez)
+        reemplazar_en_doc(doc, 'FECHA_VALIDEZ', fecha_validez)
+    # Folio en header — formato anterior: XX
     reemplazar_en_doc(doc, 'XX', str(folio_final))
 
     doc.save(output_path)
@@ -203,6 +215,17 @@ def modelo_guardar():
     save_modelos(modelos)
     return redirect(url_for('index'))
 
+
+@app.route('/modelo/<modelo_id>/descargar-word')
+def modelo_descargar_word(modelo_id):
+    modelos = load_modelos()
+    modelo  = modelos.get(modelo_id)
+    if not modelo or not modelo.get('docx_path') or not os.path.exists(modelo['docx_path']):
+        return "Archivo no encontrado", 404
+    nombre = re.sub(r'[^\w\s-]', '', modelo['nombre']).strip()
+    return send_file(modelo['docx_path'], as_attachment=True,
+                     download_name=f"{nombre}.docx")
+
 @app.route('/modelo/<modelo_id>/eliminar', methods=['POST'])
 def modelo_eliminar(modelo_id):
     modelos = load_modelos()
@@ -263,7 +286,8 @@ def generar_ejecutar():
         col_nombre   = data['col_nombre']
         col_dni      = data['col_dni']
         folio_inicio = int(data['folio_inicio'])
-        fecha_str    = data.get('fecha', '')
+        fecha_cursada = data.get('fecha_cursada', '')
+        fecha_validez = data.get('fecha_validez', '')
 
         modelos = load_modelos()
         modelo  = modelos.get(modelo_id)
@@ -289,14 +313,19 @@ def generar_ejecutar():
 
         for p in pilotos:
             folio_final  = p['folio'] + offset
-            nombre_seg   = re.sub(r'[^\w]', '_', p['nombre'])[:40]
-            docx_out     = os.path.join(tmpbase, f'FOLIO_{folio_final:04d}_{nombre_seg}.docx')
+            # Nombre del archivo: "Nombre Apellido - Nombre Modelo - Fecha Vencimiento"
+            nombre_limpio = re.sub(r'[^\w\s]', '', p['nombre']).strip()
+            curso_limpio  = re.sub(r'[^\w\s]', '', modelo['nombre']).strip()
+            vto_limpio    = re.sub(r'[/]', '-', fecha_validez) if fecha_validez else 'SIN-VTO'
+            nombre_archivo_base = f"{nombre_limpio} - {curso_limpio} - {vto_limpio}"
+            nombre_archivo_base = re.sub(r'[\\/:*?"<>|]', '', nombre_archivo_base).strip()[:120]
+            docx_out     = os.path.join(tmpbase, f'{nombre_archivo_base}.docx')
 
             try:
                 generar_certificado_docx(
                     modelo['docx_path'],
                     modelo.get('firma_path'),
-                    p, folio_final, fecha_str, docx_out
+                    p, folio_final, fecha_cursada, fecha_validez, docx_out
                 )
                 pdf = docx_a_pdf_windows(docx_out, pdf_dir)
                 if pdf:
@@ -336,6 +365,39 @@ def generar_ejecutar():
 def descargar(filename):
     path = os.path.join(UPLOADS_DIR, filename)
     return send_file(path, as_attachment=True, download_name=filename)
+
+
+@app.route('/actualizar', methods=['POST'])
+def actualizar():
+    """Auto-actualiza la app via git pull y reinicia Flask."""
+    import subprocess, sys, threading, time
+    try:
+        result = subprocess.run(
+            ['git', 'pull', 'origin', 'main'],
+            capture_output=True, text=True,
+            cwd=BASE_DIR
+        )
+        if result.returncode == 0:
+            output = result.stdout.strip()
+            ya_al_dia = 'Already up to date' in output or 'Ya está actualizado' in output
+            if not ya_al_dia:
+                # Reiniciar Flask en background después de responder
+                def reiniciar():
+                    time.sleep(1.5)
+                    os.execv(sys.executable, [sys.executable] + sys.argv)
+                threading.Thread(target=reiniciar, daemon=True).start()
+            return jsonify({
+                'ok': True,
+                'mensaje': 'Ya tenés la última versión.' if ya_al_dia else '¡Actualizado! La app se reinicia sola en 3 segundos...',
+                'output': output,
+                'actualizado': not ya_al_dia
+            })
+        else:
+            return jsonify({'ok': False, 'mensaje': result.stderr or 'Error al actualizar.'}), 500
+    except FileNotFoundError:
+        return jsonify({'ok': False, 'mensaje': 'Git no está instalado. Descargalo desde git-scm.com'}), 500
+    except Exception as e:
+        return jsonify({'ok': False, 'mensaje': str(e)}), 500
 
 if __name__ == '__main__':
     print("\n" + "="*48)

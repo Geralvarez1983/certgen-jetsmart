@@ -1,340 +1,198 @@
 {% extends 'base.html' %}
 {% block content %}
-
-<div class="page-header">
-  <h1>▶ Generar Certificados</h1>
-  <p>Subí la nómina, configurá los datos y generá todos los PDFs de una vez.</p>
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-text">
+      <div class="hero-eyebrow">Emisión de certificados</div>
+      <h1>Generar en lote</h1>
+      <p>4 pasos. La app genera todos los PDFs con firma y folio correlativo, listos para descargar en un ZIP.</p>
+    </div>
+  </div>
 </div>
-
+<div class="main">
 {% if not modelos %}
-<div class="alert alert-warn">
-  <span>⚠️</span>
-  <span>No hay modelos cargados todavía. <a href="/modelo/nuevo">Creá uno primero</a>.</span>
-</div>
+<div class="alert a-warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>No hay modelos cargados. <a href="/modelo/nuevo" style="font-weight:700;color:inherit">Creá uno primero →</a></span></div>
 {% else %}
 
-<!-- Steps indicator -->
 <div class="steps">
-  <div class="step done" id="step-ind-1">1 · Modelo</div>
-  <div class="step active" id="step-ind-2">2 · Nómina</div>
-  <div class="step" id="step-ind-3">3 · Configurar</div>
-  <div class="step" id="step-ind-4">4 · Generar</div>
+  <div class="step-i active" id="si1"><span class="sn">1</span>Modelo</div>
+  <div class="step-i" id="si2"><span class="sn">2</span>Nómina</div>
+  <div class="step-i" id="si3"><span class="sn">3</span>Configurar</div>
+  <div class="step-i" id="si4"><span class="sn">4</span>Generar</div>
 </div>
 
-<!-- PASO 1: Elegir modelo -->
-<div class="card" id="paso1">
-  <div class="card-title"><span class="icon">📋</span> Paso 1 · Elegir modelo de certificado</div>
-  <div class="form-group">
-    <label>Modelo</label>
-    <select id="sel-modelo">
-      <option value="">-- Seleccioná un modelo --</option>
-      {% for id, m in modelos.items() %}
-      <option value="{{ id }}" {{ 'selected' if request.args.get('modelo') == id }}>
-        {{ m.nombre }}
-        {% if not m.get('docx_path') %} ⚠️ (sin Word){% endif %}
-      </option>
-      {% endfor %}
-    </select>
+<!-- PASO 1 -->
+<div id="gp1">
+  <div class="card">
+    <div class="card-hd"><div class="card-title"><div class="c-ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>Paso 1 — Tipo de certificado</div></div>
+    <div class="fg">
+      <label class="lbl">Modelo</label>
+      <select id="sel-modelo">
+        <option value="">— Seleccioná un modelo —</option>
+        {% for id, m in modelos.items() %}
+        <option value="{{ id }}" {{ 'selected' if request.args.get('modelo') == id }}>{{ m.nombre }}{% if not m.get('docx_path') %} ⚠ (sin Word){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="goStep(2)">Siguiente <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
   </div>
-  <button class="btn btn-primary" onclick="irPaso2()">Siguiente →</button>
 </div>
 
-<!-- PASO 2: Subir Excel -->
-<div class="card hidden" id="paso2">
-  <div class="card-title"><span class="icon">📊</span> Paso 2 · Subir nómina (Excel)</div>
-  <div class="form-group">
-    <label>Archivo Excel con la nómina de pilotos</label>
-    <div class="file-upload" id="excel-zone">
-      <input type="file" id="excel-file" accept=".xlsx,.xls" onchange="cargarExcel()">
-      <div class="upload-icon">📊</div>
-      <div class="upload-text">Arrastrá el Excel acá o hacé clic para seleccionar</div>
-      <div class="file-name hidden" id="excel-name"></div>
+<!-- PASO 2 -->
+<div id="gp2" class="hidden">
+  <div class="card">
+    <div class="card-hd"><div class="card-title"><div class="c-ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg></div>Paso 2 — Nómina de pilotos</div></div>
+    <div class="fg">
+      <label class="lbl">Archivo Excel (.xlsx)</label>
+      <div class="uz" id="uz-xl"><input type="file" id="xl-file" accept=".xlsx,.xls" onchange="cargarExcel()"><div class="uz-ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg></div><p>Arrastrá el <strong>.xlsx</strong> o hacé clic</p><div class="uz-fn" id="fn-xl"></div></div>
     </div>
+    <div id="xl-load" class="hidden alert a-warn"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Leyendo archivo...</span></div>
+    <div class="alert a-info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Cualquier formato de Excel sirve. En el paso 3 indicás qué columna es folio, nombre y DNI.</span></div>
+    <button class="btn btn-outline-dark" onclick="goStep(1)">← Volver</button>
   </div>
-  <div id="excel-loading" class="hidden text-muted mt-1">⏳ Leyendo archivo...</div>
 </div>
 
-<!-- PASO 3: Configurar columnas -->
-<div class="card hidden" id="paso3">
-  <div class="card-title"><span class="icon">⚙️</span> Paso 3 · Configurar columnas y parámetros</div>
-
-  <div class="form-group">
-    <label>Hoja del Excel</label>
-    <select id="sel-hoja" class="col-select" onchange="actualizarPreview()">
-    </select>
-  </div>
-
-  <div class="alert alert-info">
-    <span>👁️</span>
-    <span>Vista previa de las primeras filas. Indicá qué columna corresponde a cada dato (número de columna, empezando desde 1).</span>
-  </div>
-
-  <div class="table-wrap mt-1">
-    <table class="preview-table" id="preview-table">
-      <thead><tr id="preview-header"></tr></thead>
-      <tbody id="preview-body"></tbody>
-      <tfoot>
-        <tr id="col-selectors">
-          <td colspan="10">
-          </td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-
-  <div class="form-row-3 mt-2">
-    <div class="form-group">
-      <label>Columna FOLIO (nro)</label>
-      <input type="number" id="col-folio" value="1" min="1" max="20">
-      <div class="hint">Nro de columna donde está el folio</div>
+<!-- PASO 3 -->
+<div id="gp3" class="hidden">
+  <div class="card">
+    <div class="card-hd"><div class="card-title"><div class="c-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg></div>Paso 3 — Columnas y parámetros</div></div>
+    <div class="fg"><label class="lbl">Hoja del Excel</label><select id="sel-hoja" onchange="recargarPreview()"></select></div>
+    <div class="alert a-info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Vista previa. Indicá abajo el número de columna de cada dato (desde 1).</span></div>
+    <div class="tbl-wrap"><table><thead><tr id="prev-head"></tr></thead><tbody id="prev-body"></tbody></table></div>
+    <div class="form-row-3 mt-2">
+      <div class="fg"><label class="lbl">Col. Folio</label><input type="number" id="col-f" value="1" min="1" max="20"><div class="hint">Columna del número de folio</div></div>
+      <div class="fg"><label class="lbl">Col. Nombre</label><input type="number" id="col-n" value="5" min="1" max="20"><div class="hint">Columna con el nombre</div></div>
+      <div class="fg"><label class="lbl">Col. DNI</label><input type="number" id="col-d" value="6" min="1" max="20"><div class="hint">Columna con el DNI</div></div>
     </div>
-    <div class="form-group">
-      <label>Columna NOMBRE</label>
-      <input type="number" id="col-nombre" value="5" min="1" max="20">
-      <div class="hint">Nro de columna con el nombre del piloto</div>
+    <div class="divider"></div>
+    <div class="form-row">
+      <div class="fg"><label class="lbl">Folio inicial</label><input type="number" id="folio-ini" value="898" min="1" placeholder="Ej: 1089"><div class="hint">El primer folio del Excel se asigna a este número</div></div>
     </div>
-    <div class="form-group">
-      <label>Columna DNI</label>
-      <input type="number" id="col-dni" value="6" min="1" max="20">
-      <div class="hint">Nro de columna con el DNI</div>
+    <div class="form-row mt-1">
+      <div class="fg">
+        <label class="lbl">Fecha de cursada — opcional</label>
+        <div style="display:flex;gap:8px">
+          <input type="date" id="fc-pick" style="flex:1" onchange="syncDate('fc-pick','fc-txt')">
+          <input type="text" id="fc-txt" placeholder="DD/MM/YYYY" style="flex:1" oninput="syncTxt('fc-txt','fc-pick')">
+        </div>
+        <div class="hint">Reemplaza <code>DD/MM/YYYY</code>. Vacío si ya está fijo en el Word.</div>
+      </div>
+      <div class="fg">
+        <label class="lbl">Fecha de vencimiento — opcional</label>
+        <div style="display:flex;gap:8px">
+          <input type="date" id="fv-pick" style="flex:1" onchange="syncDate('fv-pick','fv-txt')">
+          <input type="text" id="fv-txt" placeholder="DD/MM/YYYY" style="flex:1" oninput="syncTxt('fv-txt','fv-pick')">
+        </div>
+        <div class="hint">Reemplaza <code>FECHA_VALIDEZ</code>. Vacío si ya está fijo en el Word.</div>
+      </div>
+    </div>
+    <div class="d-flex gap-10 wrap">
+      <button class="btn btn-primary" onclick="goStep(4)">Siguiente <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+      <button class="btn btn-outline-dark" onclick="goStep(2)">← Volver</button>
     </div>
   </div>
-
-  <div class="form-row mt-1">
-    <div class="form-group">
-      <label>Folio inicial (primer certificado)</label>
-      <input type="number" id="folio-inicio" value="898" min="1">
-      <div class="hint">El primer folio del Excel se reemplazará por este número</div>
-    </div>
-    <div class="form-group">
-      <label>Fecha de cursada (DD/MM/YYYY) — opcional</label>
-      <input type="text" id="fecha-cursada" placeholder="Ej: 20/12/2025">
-      <div class="hint">Reemplaza el placeholder DD/MM/YYYY. Dejá vacío si ya está fijo en el Word.</div>
-    </div>
-  </div>
-
-  <button class="btn btn-primary mt-1" onclick="irPaso4()">Siguiente →</button>
-  <button class="btn btn-outline mt-1" onclick="mostrar('paso2'); setStep(2)">← Volver</button>
 </div>
 
-<!-- PASO 4: Confirmar y generar -->
-<div class="card hidden" id="paso4">
-  <div class="card-title"><span class="icon">🚀</span> Paso 4 · Confirmar y generar</div>
-
-  <div id="resumen" class="alert alert-info"></div>
-
-  <div id="gen-progress" class="hidden">
-    <div class="alert alert-warn">
-      <span><div class="spinner" style="border-color:rgba(0,0,0,0.2);border-top-color:#7a5c00;"></div></span>
-      <span id="progress-msg">Generando certificados y convirtiendo a PDF... esto puede tardar unos minutos.</span>
+<!-- PASO 4 -->
+<div id="gp4" class="hidden">
+  <div class="card">
+    <div class="card-hd"><div class="card-title"><div class="c-ic ok"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>Paso 4 — Confirmar y generar</div></div>
+    <div class="alert a-info" id="resumen"></div>
+    <div id="gen-prog" class="hidden">
+      <div class="alert a-warn"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Generando certificados y convirtiendo a PDF... puede tardar varios minutos.</span></div>
+      <div class="prog-wrap"><div class="prog-bar"></div></div>
     </div>
-  </div>
-
-  <div id="gen-result" class="hidden">
-    <div class="result-box">
-      <div class="big-num" id="res-count">0</div>
-      <div class="sub">certificados generados</div>
-      <div class="folio-range" id="res-folios"></div>
-      <a id="res-download" href="#" class="btn btn-success btn-lg mt-2">
-        ⬇️ Descargar ZIP (PDF)
-      </a>
+    <div id="gen-result" class="hidden">
+      <div class="result-box">
+        <div class="big-n" id="res-n">0</div>
+        <div class="big-l">certificados generados</div>
+        <div class="fp"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span id="res-folios"></span></div>
+        <a id="res-dl" href="#" class="btn btn-ok btn-lg">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar ZIP
+        </a>
+      </div>
+      <div id="res-err" class="hidden alert a-warn mt-2"></div>
+      <div class="mt-2 d-flex gap-10">
+        <button class="btn btn-outline-dark" onclick="location.reload()">
+          <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Generar otro lote
+        </button>
+        <a href="/" class="btn btn-outline-dark">Ver modelos</a>
+      </div>
     </div>
-    <div id="res-errores" class="hidden alert alert-warn mt-2"></div>
-    <button class="btn btn-outline mt-2" onclick="location.reload()">🔄 Generar otro lote</button>
-  </div>
-
-  <div id="gen-actions">
-    <button class="btn btn-primary btn-lg" onclick="ejecutarGeneracion()" id="btn-generar">
-      🚀 Generar certificados PDF
-    </button>
-    <button class="btn btn-outline mt-1" onclick="mostrar('paso3'); setStep(3)">← Volver</button>
+    <div id="gen-btns">
+      <button class="btn btn-primary btn-lg" onclick="ejecutar()">
+        <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Generar certificados PDF
+      </button>
+      <button class="btn btn-outline-dark btn-lg" onclick="goStep(3)" style="margin-left:10px">← Volver</button>
+    </div>
   </div>
 </div>
 
 {% endif %}
-
+</div>
 <script>
-let excelTmpPath = '';
-let hojasDisponibles = [];
-let previewData = [];
-
-function mostrar(id) {
-  ['paso1','paso2','paso3','paso4'].forEach(p => {
-    document.getElementById(p).classList.toggle('hidden', p !== id);
+let xlPath='';
+function goStep(n){
+  if(n===2&&!document.getElementById('sel-modelo').value){alert('Seleccioná un modelo primero.');return;}
+  if(n===4){
+    const folio=document.getElementById('folio-ini').value;
+    if(!folio||folio<1){alert('Ingresá un folio inicial válido.');return;}
+    const sm=document.getElementById('sel-modelo');
+    const hoja=document.getElementById('sel-hoja').value;
+    const fc=document.getElementById('fc-txt').value;
+    const fv=document.getElementById('fv-txt').value;
+    document.getElementById('resumen').innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg><div><strong>Listo para generar:</strong><br>Modelo: <strong>${sm.options[sm.selectedIndex].text.trim()}</strong> &nbsp;·&nbsp; Hoja: <strong>${hoja}</strong> &nbsp;·&nbsp; Folio inicial: <strong>${folio}</strong>${fc?` &nbsp;·&nbsp; Cursada: <strong>${fc}</strong>`:''}${fv?` &nbsp;·&nbsp; Vto: <strong>${fv}</strong>`:''}</div>`;
+  }
+  [1,2,3,4].forEach(i=>{
+    const p=document.getElementById('gp'+i);const s=document.getElementById('si'+i);
+    if(p)p.classList.toggle('hidden',i!==n);
+    if(s){s.classList.remove('active','done');if(i<n)s.classList.add('done');if(i===n)s.classList.add('active');}
   });
 }
-
-function setStep(n) {
-  ['step-ind-1','step-ind-2','step-ind-3','step-ind-4'].forEach((id, i) => {
-    const el = document.getElementById(id);
-    el.className = 'step ' + (i+1 < n ? 'done' : i+1 === n ? 'active' : '');
-  });
+async function cargarExcel(){
+  const file=document.getElementById('xl-file').files[0];if(!file)return;
+  const fn=document.getElementById('fn-xl');fn.textContent='📎 '+file.name;fn.style.display='block';
+  document.getElementById('xl-load').classList.remove('hidden');
+  const fd=new FormData();fd.append('excel',file);
+  const r=await fetch('/preview-excel',{method:'POST',body:fd});
+  const d=await r.json();
+  document.getElementById('xl-load').classList.add('hidden');
+  if(d.error){alert('Error: '+d.error);return;}
+  xlPath=d.tmp_path;
+  const sh=document.getElementById('sel-hoja');sh.innerHTML='';
+  d.hojas.forEach(h=>{const o=document.createElement('option');o.value=h;o.textContent=h;if(h==='Libro X')o.selected=true;sh.appendChild(o);});
+  renderPreview(d.preview);goStep(3);
 }
-
-function irPaso2() {
-  const modelo = document.getElementById('sel-modelo').value;
-  if (!modelo) { alert('Seleccioná un modelo primero.'); return; }
-  mostrar('paso2');
-  setStep(2);
+async function recargarPreview(){
+  const r=await fetch('/preview-hoja',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:xlPath,hoja:document.getElementById('sel-hoja').value})});
+  const d=await r.json();if(!d.error)renderPreview(d.preview);
 }
-
-async function cargarExcel() {
-  const file = document.getElementById('excel-file').files[0];
-  if (!file) return;
-
-  document.getElementById('excel-name').textContent = '📎 ' + file.name;
-  document.getElementById('excel-name').classList.remove('hidden');
-  document.getElementById('excel-loading').classList.remove('hidden');
-
-  const fd = new FormData();
-  fd.append('excel', file);
-
-  const res  = await fetch('/preview-excel', { method: 'POST', body: fd });
-  const data = await res.json();
-
-  document.getElementById('excel-loading').classList.add('hidden');
-
-  if (data.error) { alert('Error: ' + data.error); return; }
-
-  excelTmpPath     = data.tmp_path;
-  hojasDisponibles = data.hojas;
-  previewData      = data.preview;
-
-  // Poblar selector de hojas
-  const selHoja = document.getElementById('sel-hoja');
-  selHoja.innerHTML = '';
-  data.hojas.forEach(h => {
-    const opt = document.createElement('option');
-    opt.value = h; opt.textContent = h;
-    if (h === 'Libro X') opt.selected = true;
-    selHoja.appendChild(opt);
-  });
-
-  renderPreview(data.preview);
-  mostrar('paso3');
-  setStep(3);
+function renderPreview(rows){
+  if(!rows||!rows.length)return;
+  document.getElementById('prev-head').innerHTML=rows[0].map((_,i)=>`<th><span class="cb">C${i+1}</span></th>`).join('');
+  document.getElementById('prev-body').innerHTML=rows.slice(0,6).map(r=>`<tr>${r.map(c=>`<td>${c||''}</td>`).join('')}</tr>`).join('');
 }
-
-function renderPreview(rows) {
-  if (!rows.length) return;
-  const header = document.getElementById('preview-header');
-  const body   = document.getElementById('preview-body');
-
-  // Header con números de columna
-  header.innerHTML = rows[0].map((_, i) =>
-    `<th>Col ${i+1}</th>`
-  ).join('');
-
-  // Filas
-  body.innerHTML = rows.map(row =>
-    `<tr>${row.map(c => `<td>${c || ''}</td>`).join('')}</tr>`
-  ).join('');
-}
-
-function actualizarPreview() {
-  // En una mejora futura podría recargar la preview para la hoja seleccionada
-}
-
-function irPaso4() {
-  const folio = document.getElementById('folio-inicio').value;
-  const colF  = document.getElementById('col-folio').value;
-  const colN  = document.getElementById('col-nombre').value;
-  const colD  = document.getElementById('col-dni').value;
-  const hoja  = document.getElementById('sel-hoja').value;
-  const modelo = document.getElementById('sel-modelo');
-  const fecha = document.getElementById('fecha-cursada').value;
-
-  if (!folio || folio < 1) { alert('Ingresá un folio inicial válido.'); return; }
-
-  // Resumen
-  document.getElementById('resumen').innerHTML = `
-    <span>📋</span>
-    <div>
-      <strong>Listo para generar:</strong><br>
-      Modelo: <strong>${modelo.options[modelo.selectedIndex].text}</strong> ·
-      Hoja: <strong>${hoja}</strong> ·
-      Folio inicial: <strong>${folio}</strong>
-      ${fecha ? ` · Fecha: <strong>${fecha}</strong>` : ''}
-    </div>
-  `;
-
-  mostrar('paso4');
-  setStep(4);
-}
-
-async function ejecutarGeneracion() {
-  const modelo  = document.getElementById('sel-modelo').value;
-  const hoja    = document.getElementById('sel-hoja').value;
-  const colF    = document.getElementById('col-folio').value;
-  const colN    = document.getElementById('col-nombre').value;
-  const colD    = document.getElementById('col-dni').value;
-  const folio   = document.getElementById('folio-inicio').value;
-  const fecha   = document.getElementById('fecha-cursada').value;
-
-  document.getElementById('gen-actions').classList.add('hidden');
-  document.getElementById('gen-progress').classList.remove('hidden');
-
-  const payload = {
-    modelo_id:    modelo,
-    excel_path:   excelTmpPath,
-    hoja:         hoja,
-    col_folio:    colF,
-    col_nombre:   colN,
-    col_dni:      colD,
-    folio_inicio: folio,
-    fecha:        fecha
-  };
-
-  try {
-    const res  = await fetch('/generar/ejecutar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-
-    document.getElementById('gen-progress').classList.add('hidden');
-
-    if (data.error) {
-      document.getElementById('gen-actions').classList.remove('hidden');
-      alert('Error: ' + data.error);
-      return;
-    }
-
-    // Mostrar resultado
-    document.getElementById('res-count').textContent  = data.ok;
-    document.getElementById('res-folios').textContent =
-      `Folios ${data.folio_inicio} → ${data.folio_fin}`;
-    document.getElementById('res-download').href = '/descargar/' + data.zip;
-    document.getElementById('res-download').download = data.zip;
-
-    if (data.errores && data.errores.length) {
-      const errEl = document.getElementById('res-errores');
-      errEl.innerHTML = `⚠️ <strong>${data.errores.length} error(es):</strong> ${data.errores.join(', ')}`;
-      errEl.classList.remove('hidden');
-    }
-
+function syncDate(fromId,toId){const v=document.getElementById(fromId).value;if(!v)return;const[y,m,d]=v.split('-');document.getElementById(toId).value=d+'/'+m+'/'+y;}
+function syncTxt(fromId,toId){const v=document.getElementById(fromId).value;const m=v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(m)document.getElementById(toId).value=m[3]+'-'+m[2]+'-'+m[1];}
+async function ejecutar(){
+  document.getElementById('gen-btns').classList.add('hidden');
+  document.getElementById('gen-prog').classList.remove('hidden');
+  const payload={modelo_id:document.getElementById('sel-modelo').value,excel_path:xlPath,hoja:document.getElementById('sel-hoja').value,col_folio:document.getElementById('col-f').value,col_nombre:document.getElementById('col-n').value,col_dni:document.getElementById('col-d').value,folio_inicio:document.getElementById('folio-ini').value,fecha_cursada:document.getElementById('fc-txt').value,fecha_validez:document.getElementById('fv-txt').value};
+  try{
+    const r=await fetch('/generar/ejecutar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();
+    document.getElementById('gen-prog').classList.add('hidden');
+    if(d.error){document.getElementById('gen-btns').classList.remove('hidden');alert('Error: '+d.error);return;}
+    document.getElementById('res-n').textContent=d.ok;
+    document.getElementById('res-folios').textContent='Folios '+d.folio_inicio+' → '+d.folio_fin;
+    const dl=document.getElementById('res-dl');dl.href='/descargar/'+d.zip;dl.download=d.zip;
+    if(d.errores&&d.errores.length){const e=document.getElementById('res-err');e.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span><strong>${d.errores.length} error(es):</strong> ${d.errores.join(', ')}</span>`;e.classList.remove('hidden');}
     document.getElementById('gen-result').classList.remove('hidden');
-
-  } catch(e) {
-    document.getElementById('gen-progress').classList.add('hidden');
-    document.getElementById('gen-actions').classList.remove('hidden');
-    alert('Error de conexión: ' + e.message);
-  }
+  }catch(e){document.getElementById('gen-prog').classList.add('hidden');document.getElementById('gen-btns').classList.remove('hidden');alert('Error: '+e.message);}
 }
-
-// Init: si viene con modelo preseleccionado, avanzar al paso 1 ya marcado
-window.addEventListener('DOMContentLoaded', () => {
-  if (document.getElementById('sel-modelo')?.value) {
-    setStep(1);
-  }
-  // drag & drop
-  document.querySelectorAll('.file-upload').forEach(zone => {
-    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
-    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-    zone.addEventListener('drop', () => zone.classList.remove('dragover'));
-  });
-});
+document.querySelectorAll('.uz').forEach(z=>{z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('over')});z.addEventListener('dragleave',()=>z.classList.remove('over'));z.addEventListener('drop',()=>z.classList.remove('over'));});
 </script>
-
 {% endblock %}
