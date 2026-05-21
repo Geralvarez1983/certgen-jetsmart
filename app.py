@@ -15,9 +15,11 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
-MODELOS_DIR = os.path.join(BASE_DIR, 'modelos')
-UPLOADS_DIR = os.path.join(BASE_DIR, 'uploads')
-DATA_FILE   = os.path.join(BASE_DIR, 'data', 'modelos.json')
+# En Railway usar /data para persistencia, local usar carpeta del proyecto
+DATA_ROOT   = os.environ.get('RAILWAY_DATA_DIR', BASE_DIR)
+MODELOS_DIR = os.path.join(DATA_ROOT, 'modelos')
+UPLOADS_DIR = os.path.join(DATA_ROOT, 'uploads')
+DATA_FILE   = os.path.join(DATA_ROOT, 'data', 'modelos.json')
 
 for d in [MODELOS_DIR, UPLOADS_DIR, os.path.join(BASE_DIR, 'data')]:
     os.makedirs(d, exist_ok=True)
@@ -131,25 +133,37 @@ def generar_certificado_docx(template_path, firma_path, piloto, folio_final, fec
     return output_path
 
 def docx_a_pdf_windows(docx_path, pdf_dir):
-    """Convierte docx a PDF usando LibreOffice en Windows."""
-    # Buscar LibreOffice en rutas típicas de Windows
+    """Convierte docx a PDF usando LibreOffice (Windows, Linux, cloud)."""
     lo_paths = [
+        # Linux / Railway / cloud
+        'libreoffice',
+        'soffice',
+        '/usr/bin/libreoffice',
+        '/usr/bin/soffice',
+        '/nix/store/libreoffice/bin/soffice',
+        # Windows
         r'C:\Program Files\LibreOffice\program\soffice.exe',
         r'C:\Program Files (x86)\LibreOffice\program\soffice.exe',
-        'soffice',  # si está en PATH
         'soffice.exe',
     ]
     soffice = None
     for p in lo_paths:
-        if os.path.exists(p) if os.sep in p else True:
-            soffice = p
-            break
+        try:
+            result_test = subprocess.run([p, '--version'], capture_output=True, timeout=5)
+            if result_test.returncode == 0:
+                soffice = p
+                break
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+
+    if not soffice:
+        return None
 
     result = subprocess.run(
         [soffice, '--headless', '--convert-to', 'pdf', '--outdir', pdf_dir, docx_path],
-        capture_output=True, text=True, timeout=60
+        capture_output=True, text=True, timeout=120,
+        env={**os.environ, 'HOME': '/tmp'}
     )
-    # El PDF tiene el mismo nombre base
     base = os.path.splitext(os.path.basename(docx_path))[0]
     pdf_path = os.path.join(pdf_dir, base + '.pdf')
     return pdf_path if os.path.exists(pdf_path) else None
@@ -404,4 +418,5 @@ if __name__ == '__main__':
     print("  CertGen JetSMART - Listo!")
     print("  Abri el navegador en: http://localhost:5000")
     print("="*48 + "\n")
-    app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port, threaded=True)
