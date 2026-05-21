@@ -15,6 +15,4 @@ COPY . .
 
 RUN mkdir -p /app/uploads /app/modelos /app/data
 
-ENV PORT=8080
-
-CMD gunicorn app:app --bind 0.0.0.0:${PORT} --timeout 300 --workers 1
+CMD gunicorn app:app --bind 0.0.0.0:${PORT:-5000} --timeout 300 --workers 1
