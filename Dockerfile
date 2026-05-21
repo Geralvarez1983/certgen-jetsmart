@@ -1,6 +1,5 @@
 FROM python:3.11-slim
 
-# Instalar LibreOffice y dependencias
 RUN apt-get update && apt-get install -y \
     libreoffice \
     --no-install-recommends \
@@ -16,6 +15,6 @@ COPY . .
 
 RUN mkdir -p /app/uploads /app/modelos /app/data
 
-EXPOSE $PORT
+ENV PORT=8080
 
-CMD gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 1
+CMD gunicorn app:app --bind 0.0.0.0:${PORT} --timeout 300 --workers 1
