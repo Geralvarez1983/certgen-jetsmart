@@ -90,18 +90,44 @@ def inyectar_firma(doc, firma_path):
     pass  # lo hacemos en generar_certificado directamente sobre el ZIP
 
 def inyectar_firma_en_zip(docx_path, firma_path):
-    """Reemplaza media/image2.jpg dentro del docx con la firma."""
-    if not firma_path or not os.path.exists(firma_path):
-        return
-    tmp = docx_path + '.tmp'
-    with zipfile.ZipFile(docx_path, 'r') as zin, \
-         zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
-        for item in zin.infolist():
-            if item.filename in ('word/media/image2.jpg', 'word/media/image2.jpeg'):
-                zout.write(firma_path, item.filename)
-            else:
-                zout.writestr(item, zin.read(item.filename))
-    os.replace(tmp, docx_path)
+        """Inyecta imagen de firma en el docx."""
+        if not firma_path or not os.path.exists(firma_path):
+            return
+        import re as _re
+        tmp = docx_path + '.tmp'
+        with zipfile.ZipFile(docx_path, 'r') as zin, zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
+            existing_files = zin.namelist()
+            has_image2 = any('image2' in f for f in existing_files)
+            firma_rel_id = 'rIdFirma99'
+            firma_zip_path = 'word/media/image2.jpeg'
+            for item in zin.infolist():
+                data = zin.read(item.filename)
+                if 'image2' in item.filename:
+                    zout.write(firma_path, item.filename)
+                    continue
+                if item.filename == 'word/_rels/document.xml.rels' and not has_image2:
+                    rels_str = data.decode('utf-8')
+                    if firma_rel_id not in rels_str:
+                        rels_str = rels_str.replace('</Relationships>', '<Relationship Id="' + firma_rel_id + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image2.jpeg"/></Relationships>')
+                    data = rels_str.encode('utf-8')
+                if item.filename == 'word/document.xml' and not has_image2:
+                    doc_str = data.decode('utf-8')
+                    firma_drawing = '<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="1800000" cy="900000"/><wp:docPr id="99" name="firma"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="99" name="firma"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="' + firma_rel_id + '" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1800000" cy="900000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>'
+                    firma_para = '<w:p><w:pPr><w:spacing w:after="0" w:line="20" w:lineRule="atLeast"/></w:pPr><w:r><w:rPr><w:noProof/></w:rPr>' + firma_drawing + '</w:r></w:p>'
+                    pattern = r'(<w:p[^>]*>(?:<w:pPr>.*?</w:pPr>)?<w:r[^>]*>(?:<w:rPr>.*?</w:rPr>)?<w:t[^>]*>_{5,}</w:t></w:r></w:p>)'
+                    match = _re.search(pattern, doc_str)
+                    if match:
+                        doc_str = doc_str[:match.start()] + firma_para + doc_str[match.start():]
+                    data = doc_str.encode('utf-8')
+                if item.filename == '[Content_Types].xml' and not has_image2:
+                    ct_str = data.decode('utf-8')
+                    if 'Extension="jpeg"' not in ct_str:
+                        ct_str = ct_str.replace('</Types>', '<Default Extension="jpeg" ContentType="image/jpeg"/></Types>')
+                    data = ct_str.encode('utf-8')
+                zout.writestr(item, data)
+            if not has_image2:
+                zout.write(firma_path, firma_zip_path)
+        os.replace(tmp, docx_path)
 
 def generar_certificado_docx(template_path, firma_path, piloto, folio_final, fecha_cursada, fecha_validez, output_path, libro=None):
     """Genera un .docx para un piloto."""
