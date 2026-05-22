@@ -210,30 +210,39 @@ def modelo_editar(modelo_id):
 
 @app.route('/modelo/guardar', methods=['POST'])
 def modelo_guardar():
-    modelos   = load_modelos()
-    modelo_id = request.form.get('modelo_id') or str(uuid.uuid4())[:8]
-    nombre    = request.form.get('nombre', '').strip()
+    try:
+        # Asegurar que las carpetas existan
+        for d in [MODELOS_DIR, UPLOADS_DIR, os.path.dirname(DATA_FILE)]:
+            os.makedirs(d, exist_ok=True)
 
-    modelo = modelos.get(modelo_id, {'id': modelo_id})
-    modelo['nombre'] = nombre
-    modelo['categoria_id'] = request.form.get('categoria_id') or None
+        modelos   = load_modelos()
+        modelo_id = request.form.get('modelo_id') or str(uuid.uuid4())[:8]
+        nombre    = request.form.get('nombre', '').strip()
 
-    if 'docx' in request.files and request.files['docx'].filename:
-        f    = request.files['docx']
-        dest = os.path.join(MODELOS_DIR, f'{modelo_id}.docx')
-        f.save(dest)
-        modelo['docx_path'] = dest
+        modelo = modelos.get(modelo_id, {'id': modelo_id})
+        modelo['nombre'] = nombre
+        modelo['categoria_id'] = request.form.get('categoria_id') or None
 
-    if 'firma' in request.files and request.files['firma'].filename:
-        f   = request.files['firma']
-        ext = os.path.splitext(f.filename)[1].lower() or '.jpg'
-        dest = os.path.join(MODELOS_DIR, f'{modelo_id}_firma{ext}')
-        f.save(dest)
-        modelo['firma_path'] = dest
+        if 'docx' in request.files and request.files['docx'].filename:
+            f    = request.files['docx']
+            dest = os.path.join(MODELOS_DIR, f'{modelo_id}.docx')
+            f.save(dest)
+            modelo['docx_path'] = dest
+            modelo['docx_original_name'] = f.filename
 
-    modelos[modelo_id] = modelo
-    save_modelos(modelos)
-    return redirect(url_for('index'))
+        if 'firma' in request.files and request.files['firma'].filename:
+            f   = request.files['firma']
+            ext = os.path.splitext(f.filename)[1].lower() or '.jpg'
+            dest = os.path.join(MODELOS_DIR, f'{modelo_id}_firma{ext}')
+            f.save(dest)
+            modelo['firma_path'] = dest
+
+        modelos[modelo_id] = modelo
+        save_modelos(modelos)
+        return redirect(url_for('index'))
+    except Exception as e:
+        import traceback
+        return f"<h2>Error al guardar modelo</h2><pre>{traceback.format_exc()}</pre><br><a href='/'>Volver</a>", 500
 
 
 @app.route('/modelo/<modelo_id>/descargar-word')
