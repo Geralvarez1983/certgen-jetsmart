@@ -103,29 +103,38 @@ def inyectar_firma_en_zip(docx_path, firma_path):
                 zout.writestr(item, zin.read(item.filename))
     os.replace(tmp, docx_path)
 
-def generar_certificado_docx(template_path, firma_path, piloto, folio_final, fecha_cursada, fecha_validez, output_path):
+def generar_certificado_docx(template_path, firma_path, piloto, folio_final, fecha_cursada, fecha_validez, output_path, libro=None):
     """Genera un .docx para un piloto."""
     doc = Document(template_path)
 
     nombre = piloto['nombre'].upper()
     dni    = piloto['dni']
 
-    # Reemplazar placeholders — soporta múltiples formatos de template
-    # Formato nuevo: NOMBRE ALUMNO / NUM_DNI / NUM_FOLIO / FECHA_INICIO / FECHA_FIN
-    reemplazar_en_doc(doc, 'NOMBRE ALUMNO', nombre)
-    reemplazar_en_doc(doc, 'NUM_DNI', dni)
-    reemplazar_en_doc(doc, 'NUM_FOLIO', str(folio_final))
-    # Formato anterior: NOMBRE ALUMNO, DNI XXXXX
+    # Reemplazar placeholders — soporta todos los formatos de template
+    # El orden importa: reemplazar los más específicos primero
+    
+    # Formato con coma: "NOMBRE ALUMNO, DNI XXXXX" (template viejo)
     reemplazar_en_doc(doc, 'NOMBRE ALUMNO, DNI XXXXX', f'{nombre}, DNI {dni}')
+    # Nombre solo
+    reemplazar_en_doc(doc, 'NOMBRE_ALUMNO', nombre)
+    reemplazar_en_doc(doc, 'NOMBRE ALUMNO', nombre)
+    # DNI / TLA
+    reemplazar_en_doc(doc, 'NUM_DNI', dni)
     reemplazar_en_doc(doc, 'DNI XXXXX', f'DNI {dni}')
+    # Folio
+    reemplazar_en_doc(doc, 'NUM_FOLIO', str(folio_final))
+    # Libro Matriz
+    libro_val = str(libro) if libro else str(folio_final)
+    reemplazar_en_doc(doc, 'NUM_LIBRO', libro_val)
+    # Fechas
     if fecha_cursada:
         reemplazar_en_doc(doc, 'FECHA_INICIO', fecha_cursada)
-        reemplazar_en_doc(doc, 'DD/MM/YYYY', fecha_cursada)
         reemplazar_en_doc(doc, 'FECHA_CURSADA', fecha_cursada)
+        reemplazar_en_doc(doc, 'DD/MM/YYYY', fecha_cursada)
     if fecha_validez:
         reemplazar_en_doc(doc, 'FECHA_FIN', fecha_validez)
         reemplazar_en_doc(doc, 'FECHA_VALIDEZ', fecha_validez)
-    # Folio en header — formato anterior: XX
+    # Folio en header — formato anterior con XX solo
     reemplazar_en_doc(doc, 'XX', str(folio_final))
 
     doc.save(output_path)
@@ -174,22 +183,25 @@ def docx_a_pdf_windows(docx_path, pdf_dir):
 
 # ─── Excel ────────────────────────────────────────────────────────────────────
 
-def leer_excel(path, hoja, col_folio, col_nombre, col_dni):
+def leer_excel(path, hoja, col_folio, col_nombre, col_dni, col_libro=None):
     wb = openpyxl.load_workbook(path, data_only=True)
     ws = wb[hoja] if hoja in wb.sheetnames else wb.active
 
     ci = int(col_folio) - 1
     cn = int(col_nombre) - 1
     cd = int(col_dni)   - 1
+    cl = int(col_libro) - 1 if col_libro else None
 
     rows = []
     for row in ws.iter_rows(values_only=True):
         folio  = row[ci] if ci < len(row) else None
         nombre = row[cn] if cn < len(row) else None
         dni    = row[cd] if cd < len(row) else None
+        libro  = row[cl] if cl is not None and cl < len(row) else None
         if isinstance(folio, int) and nombre and str(nombre).strip():
             dni_str = str(int(dni)) if isinstance(dni, (float, int)) else str(dni or '').strip()
-            rows.append({'folio': folio, 'nombre': str(nombre).strip(), 'dni': dni_str})
+            libro_str = str(int(libro)) if isinstance(libro, (float, int)) else str(libro or '').strip()
+            rows.append({'folio': folio, 'nombre': str(nombre).strip(), 'dni': dni_str, 'libro': libro_str})
     return rows
 
 # ─── Rutas ────────────────────────────────────────────────────────────────────
@@ -314,6 +326,7 @@ def generar_ejecutar():
         col_folio    = data['col_folio']
         col_nombre   = data['col_nombre']
         col_dni      = data['col_dni']
+        col_libro    = data.get('col_libro', '')
         folio_inicio = int(data['folio_inicio'])
         fecha_cursada = data.get('fecha_cursada', '')
         fecha_validez = data.get('fecha_validez', '')
@@ -325,7 +338,7 @@ def generar_ejecutar():
         if not modelo.get('docx_path') or not os.path.exists(modelo['docx_path']):
             return jsonify({'error': 'El modelo no tiene un Word cargado'}), 400
 
-        pilotos = leer_excel(excel_path, hoja, col_folio, col_nombre, col_dni)
+        pilotos = leer_excel(excel_path, hoja, col_folio, col_nombre, col_dni, col_libro if col_libro else None)
         if not pilotos:
             return jsonify({'error': 'No se encontraron filas con datos válidos. Verificá las columnas seleccionadas.'}), 400
 
@@ -354,7 +367,8 @@ def generar_ejecutar():
                 generar_certificado_docx(
                     modelo['docx_path'],
                     modelo.get('firma_path'),
-                    p, folio_final, fecha_cursada, fecha_validez, docx_out
+                    p, folio_final, fecha_cursada, fecha_validez, docx_out,
+                    libro=p.get('libro')
                 )
                 pdf = docx_a_pdf_windows(docx_out, pdf_dir)
                 if pdf:

@@ -60,9 +60,14 @@
     <div class="alert a-info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Vista previa. Indicá abajo el número de columna de cada dato (desde 1).</span></div>
     <div class="tbl-wrap"><table><thead><tr id="prev-head"></tr></thead><tbody id="prev-body"></tbody></table></div>
     <div class="form-row-3 mt-2">
-      <div class="fg"><label class="lbl">Col. Folio</label><input type="number" id="col-f" value="1" min="1" max="20"><div class="hint">Columna del número de folio</div></div>
-      <div class="fg"><label class="lbl">Col. Nombre</label><input type="number" id="col-n" value="5" min="1" max="20"><div class="hint">Columna con el nombre</div></div>
-      <div class="fg"><label class="lbl">Col. DNI</label><input type="number" id="col-d" value="6" min="1" max="20"><div class="hint">Columna con el DNI</div></div>
+      <div class="fg"><label class="lbl">Col. Folio</label><input type="number" id="col-f" value="1" min="1" max="20"><div class="hint">Columna del folio</div></div>
+      <div class="fg"><label class="lbl">Col. Nombre</label><input type="number" id="col-n" value="5" min="1" max="20"><div class="hint">Columna con nombre</div></div>
+      <div class="fg"><label class="lbl">Col. DNI / TLA</label><input type="number" id="col-d" value="6" min="1" max="20"><div class="hint">Columna con DNI</div></div>
+    </div>
+    <div class="form-row-3 mt-1">
+      <div class="fg"><label class="lbl">Col. Libro Matriz — opcional</label><input type="number" id="col-l" value="" min="1" max="20" placeholder="—"><div class="hint">Dejá vacío si no aplica</div></div>
+      <div class="fg"></div>
+      <div class="fg"></div>
     </div>
     <div class="divider"></div>
     <div class="form-row">
@@ -180,7 +185,7 @@ function syncTxt(fromId,toId){const v=document.getElementById(fromId).value;cons
 async function ejecutar(){
   document.getElementById('gen-btns').classList.add('hidden');
   document.getElementById('gen-prog').classList.remove('hidden');
-  const payload={modelo_id:document.getElementById('sel-modelo').value,excel_path:xlPath,hoja:document.getElementById('sel-hoja').value,col_folio:document.getElementById('col-f').value,col_nombre:document.getElementById('col-n').value,col_dni:document.getElementById('col-d').value,folio_inicio:document.getElementById('folio-ini').value,fecha_cursada:document.getElementById('fc-txt').value,fecha_validez:document.getElementById('fv-txt').value};
+  const payload={modelo_id:document.getElementById('sel-modelo').value,excel_path:xlPath,hoja:document.getElementById('sel-hoja').value,col_folio:document.getElementById('col-f').value,col_nombre:document.getElementById('col-n').value,col_dni:document.getElementById('col-d').value,col_libro:document.getElementById('col-l').value||"",folio_inicio:document.getElementById('folio-ini').value,fecha_cursada:document.getElementById('fc-txt').value,fecha_validez:document.getElementById('fv-txt').value};
   try{
     const r=await fetch('/generar/ejecutar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const d=await r.json();
