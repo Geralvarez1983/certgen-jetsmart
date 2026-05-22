@@ -2,6 +2,7 @@ FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y \
     libreoffice \
+    git \
     --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -13,7 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /app/uploads /app/modelos /app/data
+RUN mkdir -p /tmp/certgen_data/uploads /tmp/certgen_data/modelos /tmp/certgen_data/data
+
+ENV RENDER=true
 
 EXPOSE 10000
 

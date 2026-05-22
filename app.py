@@ -16,12 +16,16 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 # En Railway usar /data para persistencia, local usar carpeta del proyecto
-DATA_ROOT   = os.environ.get('RAILWAY_DATA_DIR', BASE_DIR)
+# En cloud (Render/Railway) usar /tmp para datos, en local usar carpeta del proyecto
+if os.environ.get('RENDER') or os.environ.get('RAILWAY_DATA_DIR'):
+    DATA_ROOT = '/tmp/certgen_data'
+else:
+    DATA_ROOT = BASE_DIR
 MODELOS_DIR = os.path.join(DATA_ROOT, 'modelos')
 UPLOADS_DIR = os.path.join(DATA_ROOT, 'uploads')
 DATA_FILE   = os.path.join(DATA_ROOT, 'data', 'modelos.json')
 
-for d in [MODELOS_DIR, UPLOADS_DIR, os.path.join(BASE_DIR, 'data')]:
+for d in [MODELOS_DIR, UPLOADS_DIR, os.path.join(DATA_ROOT, 'data')]:
     os.makedirs(d, exist_ok=True)
 
 # ─── Persistencia ─────────────────────────────────────────────────────────────
