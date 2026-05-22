@@ -192,16 +192,17 @@ def leer_excel(path, hoja, col_folio, col_nombre, col_dni):
 
 @app.route('/')
 def index():
-    return render_template('index.html', modelos=load_modelos())
+    return render_template('index.html', modelos=load_modelos(), categorias_data=load_categorias())
 
 @app.route('/modelo/nuevo')
 def modelo_nuevo():
-    return render_template('modelo_form.html', modelo=None, modelo_id=None)
+    cat_default = request.args.get('cat')
+    return render_template('modelo_form.html', modelo=None, modelo_id=None, categorias=load_categorias(), cat_default=cat_default)
 
 @app.route('/modelo/<modelo_id>/editar')
 def modelo_editar(modelo_id):
     modelos = load_modelos()
-    return render_template('modelo_form.html', modelo=modelos.get(modelo_id), modelo_id=modelo_id)
+    return render_template('modelo_form.html', modelo=modelos.get(modelo_id), modelo_id=modelo_id, categorias=load_categorias(), cat_default=None)
 
 @app.route('/modelo/guardar', methods=['POST'])
 def modelo_guardar():
@@ -211,6 +212,7 @@ def modelo_guardar():
 
     modelo = modelos.get(modelo_id, {'id': modelo_id})
     modelo['nombre'] = nombre
+    modelo['categoria_id'] = request.form.get('categoria_id') or None
 
     if 'docx' in request.files and request.files['docx'].filename:
         f    = request.files['docx']
@@ -412,6 +414,73 @@ def actualizar():
         return jsonify({'ok': False, 'mensaje': 'Git no está instalado. Descargalo desde git-scm.com'}), 500
     except Exception as e:
         return jsonify({'ok': False, 'mensaje': str(e)}), 500
+
+
+# ─── Categorías ───────────────────────────────────────────────────────────────
+
+def load_categorias():
+    """Carga categorías. Siempre incluye 'Sin categoría' como fallback."""
+    modelos = load_modelos()
+    cats_data_file = os.path.join(DATA_ROOT, 'data', 'categorias.json')
+    if os.path.exists(cats_data_file):
+        with open(cats_data_file, encoding='utf-8') as f:
+            cats = json.load(f)
+    else:
+        cats = []
+    return cats
+
+def save_categorias(cats):
+    cats_data_file = os.path.join(DATA_ROOT, 'data', 'categorias.json')
+    os.makedirs(os.path.dirname(cats_data_file), exist_ok=True)
+    with open(cats_data_file, 'w', encoding='utf-8') as f:
+        json.dump(cats, f, ensure_ascii=False, indent=2)
+
+@app.route('/categorias')
+def categorias_page():
+    cats = load_categorias()
+    return render_template('categorias.html', categorias=cats)
+
+@app.route('/categoria/guardar', methods=['POST'])
+def categoria_guardar():
+    data = request.json
+    cats = load_categorias()
+    nombre = data.get('nombre', '').strip()
+    cat_id = data.get('id') or str(uuid.uuid4())[:8]
+    color = data.get('color', '#143C64')
+    # Actualizar o agregar
+    found = False
+    for c in cats:
+        if c['id'] == cat_id:
+            c['nombre'] = nombre
+            c['color'] = color
+            found = True
+            break
+    if not found:
+        cats.append({'id': cat_id, 'nombre': nombre, 'color': color})
+    save_categorias(cats)
+    return jsonify({'ok': True, 'id': cat_id})
+
+@app.route('/categoria/<cat_id>/eliminar', methods=['POST'])
+def categoria_eliminar(cat_id):
+    cats = load_categorias()
+    cats = [c for c in cats if c['id'] != cat_id]
+    save_categorias(cats)
+    # Desasignar modelos que tenían esta categoría
+    modelos = load_modelos()
+    for m in modelos.values():
+        if m.get('categoria_id') == cat_id:
+            m['categoria_id'] = None
+    save_modelos(modelos)
+    return jsonify({'ok': True})
+
+@app.route('/modelo/<modelo_id>/set-categoria', methods=['POST'])
+def modelo_set_categoria(modelo_id):
+    data = request.json
+    modelos = load_modelos()
+    if modelo_id in modelos:
+        modelos[modelo_id]['categoria_id'] = data.get('categoria_id')
+        save_modelos(modelos)
+    return jsonify({'ok': True})
 
 if __name__ == '__main__':
     print("\n" + "="*48)

@@ -193,6 +193,16 @@
     .mc-file-dl{display:flex;align-items:center;color:var(--js-blue);flex-shrink:0;text-decoration:none;padding:2px}
     .mc-file-dl:hover{color:var(--js-red)}
     .mc-file-dl svg{width:13px;height:13px}
+    /* ── CATEGORY SECTIONS ── */
+    .cat-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+    .cat-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;user-select:none;border-left:4px solid var(--cat-color,var(--js-blue));transition:background .15s}
+    .cat-header:hover{background:var(--light)}
+    .cat-header-left{display:flex;align-items:center;gap:10px}
+    .cat-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+    .cat-name{font-weight:700;font-size:14px}
+    .cat-count{font-size:11px;color:var(--muted);background:var(--light);border:1px solid var(--border);border-radius:20px;padding:2px 8px;font-weight:500}
+    .cat-chevron{width:18px;height:18px;color:var(--muted);transition:transform .2s;flex-shrink:0}
+    .cat-body{border-top:1px solid var(--border)}
     @media(max-width:640px){
       .form-row,.form-row-3{grid-template-columns:1fr}
       .mg{grid-template-columns:1fr}
@@ -213,6 +223,7 @@
   <div class="nav-links">
     <a class="nav-link {{ 'active' if request.endpoint == 'index' }}" href="/">Modelos</a>
     <a class="nav-link {{ 'active' if request.endpoint in ['generar_page'] }}" href="/generar">Generar</a>
+    <a class="nav-link {{ 'active' if request.endpoint == 'categorias_page' }}" href="/categorias">Categorías</a>
     <button class="nav-upd" id="btn-upd" onclick="doUpdate()">
       <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       <span id="upd-txt">Actualizar</span>

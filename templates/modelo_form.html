@@ -21,6 +21,22 @@
       <input type="text" name="nombre" value="{{ modelo.nombre if modelo else '' }}" placeholder="Ej: CRM/FFHH Recurrente 2025, E-Learning Diciembre..." required>
       <div class="hint">Se usa para identificar el modelo en la lista y nombrar el ZIP de salida.</div>
     </div>
+    <div class="fg">
+      <label class="lbl">Categoría</label>
+      <select name="categoria_id">
+        <option value="">— Sin categoría —</option>
+        {% for cat in categorias %}
+        <option value="{{ cat.id }}"
+          {% if modelo and modelo.get('categoria_id') == cat.id %}selected
+          {% elif cat_default == cat.id %}selected{% endif %}>
+          {{ cat.nombre }}
+        </option>
+        {% endfor %}
+      </select>
+      {% if not categorias %}
+      <div class="hint">Todavía no hay categorías. <a href="/categorias">Creá una primero →</a></div>
+      {% endif %}
+    </div>
   </div>
   <div class="form-row">
     <div class="card">
