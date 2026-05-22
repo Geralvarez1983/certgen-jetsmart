@@ -25,6 +25,8 @@ MODELOS_DIR = os.path.join(DATA_ROOT, 'modelos')
 UPLOADS_DIR = os.path.join(DATA_ROOT, 'uploads')
 DATA_FILE   = os.path.join(DATA_ROOT, 'data', 'modelos.json')
 
+LOGO_PATH   = os.path.join(BASE_DIR, 'static', 'logo_certificado.jpeg')
+
 for d in [MODELOS_DIR, UPLOADS_DIR, os.path.join(DATA_ROOT, 'data')]:
     os.makedirs(d, exist_ok=True)
 
@@ -89,6 +91,19 @@ def inyectar_firma(doc, firma_path):
     # (llamar después de doc.save)
     pass  # lo hacemos en generar_certificado directamente sobre el ZIP
 
+def inyectar_logo_en_zip(docx_path, logo_path):
+    """Reemplaza image1.jpeg (logo en header) con el logo oficial."""
+    if not logo_path or not os.path.exists(logo_path):
+        return
+    tmp = docx_path + '.logo_tmp'
+    with zipfile.ZipFile(docx_path, 'r') as zin,          zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            if item.filename == 'word/media/image1.jpeg':
+                zout.write(logo_path, item.filename)
+            else:
+                zout.writestr(item, zin.read(item.filename))
+    os.replace(tmp, docx_path)
+
 def inyectar_firma_en_zip(docx_path, firma_path):
     """Reemplaza media/image2.jpg dentro del docx con la firma."""
     if not firma_path or not os.path.exists(firma_path):
@@ -104,44 +119,54 @@ def inyectar_firma_en_zip(docx_path, firma_path):
     os.replace(tmp, docx_path)
 
 def generar_certificado_docx(template_path, firma_path, piloto, folio_final, fecha_cursada, fecha_validez, output_path, libro=None):
-    """Genera un .docx para un piloto."""
-    doc = Document(template_path)
-
+    """Genera un .docx trabajando directo con el ZIP para preservar imágenes y formato."""
     nombre = piloto['nombre'].upper()
     dni    = piloto['dni']
-
-    # Reemplazar placeholders — soporta todos los formatos de template
-    # El orden importa: reemplazar los más específicos primero
-    
-    # Formato con coma: "NOMBRE ALUMNO, DNI XXXXX" (template viejo)
-    reemplazar_en_doc(doc, 'NOMBRE ALUMNO, DNI XXXXX', f'{nombre}, DNI {dni}')
-    # Nombre solo
-    reemplazar_en_doc(doc, 'NOMBRE_ALUMNO', nombre)
-    reemplazar_en_doc(doc, 'NOMBRE ALUMNO', nombre)
-    # DNI / TLA
-    reemplazar_en_doc(doc, 'NUM_DNI', dni)
-    reemplazar_en_doc(doc, 'DNI XXXXX', f'DNI {dni}')
-    # Folio
-    reemplazar_en_doc(doc, 'NUM_FOLIO', str(folio_final))
-    # Libro Matriz
     libro_val = str(libro) if libro else str(folio_final)
-    reemplazar_en_doc(doc, 'NUM_LIBRO', libro_val)
-    # Fechas
+
+    # Mapeo de placeholders a valores
+    replacements = {
+        'NOMBRE ALUMNO, DNI XXXXX': f'{nombre}, DNI {dni}',
+        'NOMBRE_ALUMNO': nombre,
+        'NOMBRE ALUMNO': nombre,
+        'NUM_DNI': dni,
+        'DNI XXXXX': f'DNI {dni}',
+        'NUM_FOLIO': str(folio_final),
+        'NUM_LIBRO': libro_val,
+    }
     if fecha_cursada:
-        reemplazar_en_doc(doc, 'FECHA_INICIO', fecha_cursada)
-        reemplazar_en_doc(doc, 'FECHA_CURSADA', fecha_cursada)
-        reemplazar_en_doc(doc, 'DD/MM/YYYY', fecha_cursada)
+        replacements['FECHA_INICIO'] = fecha_cursada
+        replacements['FECHA_CURSADA'] = fecha_cursada
+        replacements['DD/MM/YYYY'] = fecha_cursada
     if fecha_validez:
-        reemplazar_en_doc(doc, 'FECHA_FIN', fecha_validez)
-        reemplazar_en_doc(doc, 'FECHA_VALIDEZ', fecha_validez)
-    # Folio en header — formato anterior con XX solo
-    reemplazar_en_doc(doc, 'XX', str(folio_final))
+        replacements['FECHA_FIN'] = fecha_validez
+        replacements['FECHA_VALIDEZ'] = fecha_validez
 
-    doc.save(output_path)
+    # Trabajar directo con el ZIP del docx
+    tmp = output_path + '.building'
+    with zipfile.ZipFile(template_path, 'r') as zin,          zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            # Modificar XMLs de contenido (document, headers, footers)
+            if item.filename.endswith('.xml') and ('document' in item.filename or 'header' in item.filename or 'footer' in item.filename):
+                text = data.decode('utf-8')
+                for buscar, reemplazar in replacements.items():
+                    text = text.replace(buscar, reemplazar)
+                # Folio XX en header (solo reemplazar XX aislado entre tags)
+                if 'header' in item.filename:
+                    text = text.replace('>XX<', f'>{folio_final}<')
+                data = text.encode('utf-8')
+            zout.writestr(item, data)
 
-    # Inyectar firma reemplazando image2.jpg en el ZIP
+    os.replace(tmp, output_path)
+
+    # Inyectar firma
     if firma_path and os.path.exists(firma_path):
         inyectar_firma_en_zip(output_path, firma_path)
+
+    # Inyectar logo JetSMART (reemplaza image1.jpeg en el header)
+    if os.path.exists(LOGO_PATH):
+        inyectar_logo_en_zip(output_path, LOGO_PATH)
 
     return output_path
 
